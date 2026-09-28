@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aproximações de asteroides — NASA NeoWs · SN-2026 Grupo 01</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#eef1f5; --card:#f109; --surface:#f8fafc;
+    --ink:#16233d; --ink-soft:#5a6880; --ink-faint:#8a94a6;
+    --rule:#c6d0dd; --rule-soft:#dfe5ed;
+    --hazard:#a8272e; --hazard-bg:#f7e6e7;
+    --safe:#2c6e64;
+    --moon:#7d6ea3;
+    --sans:'IBM Plex Sans',system-ui,-apple-system,Segoe UI,sans-serif;
+    --mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
+  }
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    background:var(--paper); color:var(--ink);
+    font-family:var(--sans); font-size:15px; line-height:1.5;
+    padding:2rem 1.5rem 4rem;
+  }
+  .wrap{max-width:1140px;margin:0 auto}
+
+  /* ── Cabeçalho ───────────────────────────────────────── */
+  header{
+    display:flex;flex-wrap:wrap;gap:1rem;
+    justify-content:space-between;align-items:flex-end;
+    padding-bottom:1rem;border-bottom:2px solid var(--ink);
+  }
+  h1{font-size:1.75rem;font-weight:700;letter-spacing:-.02em;line-height:1.15}
+  .sub{color:var(--ink-soft);font-size:.875rem;margin-top:.25rem}
+  .atualizacao{text-align:right;font-size:.8125rem;color:var(--ink-soft)}
+  .atualizacao strong{
+    display:block;font-family:var(--mono);font-size:.9375rem;
+    font-weight:500;color:var(--ink);font-variant-numeric:tabular-nums;
+  }
+
+  /* ── Escala de proximidade (hero) ────────────────────── */
+  .escala{margin:2rem 0 .5rem}
+  .escala h2{
+    font-size:.9375rem;font-weight:600;margin-bottom:.125rem;
+  }
+  .escala p{font-size:.8125rem;color:var(--ink-soft);margin-bottom:1rem;max-width:62ch}
+  .plot{
+    background:var(--surface);border:1px solid var(--rule);
+    padding:1.25rem 1.25rem .75rem;overflow-x:auto;
+  }
+  .plot svg{display:block;width:100%;min-width:560px;height:auto}
+  .legenda{
+    display:flex;flex-wrap:wrap;gap:1.25rem;margin-top:.75rem;
+    font-size:.75rem;color:var(--ink-soft);
+  }
+  .legenda span{display:inline-flex;align-items:center;gap:.4rem}
+  .chip{width:10px;height:10px;flex:none}
+  .chip.haz{background:var(--hazard);clip-path:polygon(50% 0,100% 100%,0 100%)}
+  .chip.ok{background:var(--safe);border-radius:50%}
+  .chip.lua{width:2px;height:12px;background:var(--moon)}
+
+  /* ── Filtros ─────────────────────────────────────────── */
+  .filtros{
+    display:flex;flex-wrap:wrap;gap:1rem;align-items:flex-end;
+    margin:2rem 0 1.25rem;padding-bottom:1.25rem;
+    border-bottom:1px solid var(--rule);
+  }
+  .campo{display:flex;flex-direction:column;gap:.3rem}
+  .campo label{font-size:.75rem;font-weight:500;color:var(--ink-soft)}
+  input[type=date],input[type=search],select{
+    font-family:var(--sans);font-size:.875rem;color:var(--ink);
+    background:var(--surface);border:1px solid var(--rule);
+    padding:.45rem .6rem;min-height:38px;
+  }
+  input[type=search]{min-width:15rem}
+  input:focus-visible,select:focus-visible,button:focus-visible{
+    outline:2px solid var(--ink);outline-offset:2px;
+  }
+  .check{flex-direction:row;align-items:center;gap:.5rem;padding-bottom:.55rem}
+  .check input{width:16px;height:16px;accent-color:var(--hazard)}
+  .check label{font-size:.875rem;color:var(--ink);font-weight:400}
+  button{
+    font-family:var(--sans);font-size:.875rem;font-weight:500;
+    background:var(--ink);color:#fff;border:1px solid var(--ink);
+    padding:.5rem 1rem;min-height:38px;cursor:pointer;
+  }
+  button:hover{background:#0d1728}
+  button.limpar{background:transparent;color:var(--ink);border-color:var(--rule)}
+  button.limpar:hover{background:var(--surface)}
+
+  /* ── Faixa de números ────────────────────────────────── */
+  .numeros{
+    display:flex;flex-wrap:wrap;
+    border:1px solid var(--rule);background:var(--surface);
+    margin-bottom:1.5rem;
+  }
+  .numeros div{
+    flex:1 1 9rem;padding:.875rem 1rem;
+    border-right:1px solid var(--rule-soft);
+  }
+  .numeros div:last-child{border-right:0}
+  .numeros dt{font-size:.75rem;color:var(--ink-soft);margin-bottom:.15rem}
+  .numeros dd{
+    font-family:var(--mono);font-size:1.375rem;font-weight:500;
+    font-variant-numeric:tabular-nums;letter-spacing:-.02em;
+  }
+  .numeros dd small{font-size:.8125rem;color:var(--ink-soft);font-weight:400}
+  .numeros .risco dd{color:var(--hazard)}
+
+  /* ── Tabela ──────────────────────────────────────────── */
+  .tabela-wrap{overflow-x:auto;border:1px solid var(--rule);background:var(--surface)}
+  table{width:100%;border-collapse:collapse;font-size:.875rem;min-width:820px}
+  thead th{
+    text-align:left;font-weight:600;font-size:.75rem;color:var(--ink-soft);
+    padding:.65rem .875rem;border-bottom:1px solid var(--rule);
+    background:#f1f4f8;white-space:nowrap;
+  }
+  thead th.num{text-align:right}
+  tbody td{padding:.6rem .875rem;border-bottom:1px solid var(--rule-soft);vertical-align:top}
+  tbody tr:last-child td{border-bottom:0}
+  tbody tr.perigoso{background:var(--hazard-bg)}
+  td.num{font-family:var(--mono);text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+  td.nome a{color:var(--ink);text-decoration:none;border-bottom:1px solid var(--rule)}
+  td.nome a:hover{border-bottom-color:var(--ink)}
+  .tag{
+    display:inline-block;font-size:.6875rem;font-weight:600;
+    padding:.1rem .45rem;white-space:nowrap;
+  }
+  .tag.haz{background:var(--hazard);color:#fff}
+  .tag.ok{color:var(--safe);border:1px solid var(--safe)}
+  .vazio{padding:3rem 1rem;text-align:center;color:var(--ink-soft)}
+
+  footer{
+    margin-top:2rem;padding-top:1rem;border-top:1px solid var(--rule);
+    font-size:.75rem;color:var(--ink-faint);
+    display:flex;flex-wrap:wrap;gap:.75rem;justify-content:space-between;
+  }
+  footer a{color:var(--ink-soft)}
+
+  @media (max-width:640px){
+    body{padding:1.25rem 1rem 3rem}
+    h1{font-size:1.375rem}
+    .atualizacao{text-align:left}
+    input[type=search]{min-width:11rem}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *{animation:none!important;transition:none!important}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div>
+      <h1>Aproximações de asteroides</h1>
+      <p class="sub">NASA NeoWs · Near Earth Object Web Service — SN-2026, Grupo 01</p>
+    </div>
+    <div class="atualizacao">
+      Última coleta do pipeline
+      <strong id="ultima-coleta">carregando…</strong>
+      <span id="status-coleta"></span>
+    </div>
+  </header>
+
+  <!-- Hero: escala de proximidade em distâncias lunares -->
+  <section class="escala">
+    <h2>Quão perto passaram</h2>
+    <p>Cada marcador é uma aproximação. A régua está em distâncias lunares —
+       1&nbsp;LD equivale à distância média entre a Terra e a Lua (384.400&nbsp;km).
+       Objetos à esquerda da marca da Lua passaram mais perto do que ela.</p>
+    <div class="plot">
+      <svg id="grafico" viewBox="0 0 900 190" role="img"
+           aria-label="Régua de distâncias das aproximações em distâncias lunares"></svg>
+    </div>
+    <div class="legenda">
+      <span><i class="chip haz"></i> Potencialmente perigoso</span>
+      <span><i class="chip ok"></i> Sem risco classificado</span>
+      <span><i class="chip lua"></i> Órbita da Lua (1 LD)</span>
+    </div>
+  </section>
+
+  <!-- Filtros -->
+  <section class="filtros">
+    <div class="campo">
+      <label for="f-de">Aproximações a partir de</label>
+      <input type="date" id="f-de">
+    </div>
+    <div class="campo">
+      <label for="f-ate">até</label>
+      <input type="date" id="f-ate">
+    </div>
+    <div class="campo">
+      <label for="f-nome">Buscar por nome</label>
+      <input type="search" id="f-nome" placeholder="ex.: 2010 PK9" autocomplete="off">
+    </div>
+    <div class="campo">
+      <label for="f-ordem">Ordenar por</label>
+      <select id="f-ordem">
+        <option value="distancia_lunar.asc">Mais próximos primeiro</option>
+        <option value="data_aproximacao.asc">Data da aproximação</option>
+        <option value="velocidade_kms.desc">Mais rápidos primeiro</option>
+        <option value="diametro_medio_m.desc">Maiores primeiro</option>
+      </select>
+    </div>
+    <div class="campo check">
+      <input type="checkbox" id="f-perigo">
+      <label for="f-perigo">Só potencialmente perigosos</label>
+    </div>
+    <button id="btn-aplicar">Aplicar filtros</button>
+    <button class="limpar" id="btn-limpar">Limpar</button>
+  </section>
+
+  <!-- Números do recorte -->
+  <dl class="numeros">
+    <div><dt>Aproximações no recorte</dt><dd id="n-total">—</dd></div>
+    <div class="risco"><dt>Potencialmente perigosos</dt><dd id="n-perigosos">—</dd></div>
+    <div><dt>Passagem mais próxima</dt><dd id="n-proximo">—</dd></div>
+    <div><dt>Maior velocidade</dt><dd id="n-veloz">—</dd></div>
+    <div><dt>Maior diâmetro estimado</dt><dd id="n-diametro">—</dd></div>
+  </dl>
+
+  <!-- Tabela -->
+  <div class="tabela-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Asteroide</th>
+          <th>Aproximação</th>
+          <th class="num">Diâmetro est.</th>
+          <th class="num">Velocidade</th>
+          <th class="num">Distância</th>
+          <th class="num">Em luas</th>
+          <th>Classificação</th>
+        </tr>
+      </thead>
+      <tbody id="corpo">
+        <tr><td colspan="7" class="vazio">Carregando dados do Supabase…</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <footer>
+    <span>Dados: <a href="https://api.nasa.gov/" target="_blank" rel="noopener">NASA Open APIs — NeoWs</a>
+          · Banco: <a href="https://supabase.com" target="_blank" rel="noopener">Supabase</a></span>
+    <span>Coleta automatizada por GitHub Actions · Painel no GitHub Pages</span>
+  </footer>
+
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   Configuração — substitua pelos valores do seu projeto Supabase.
+   Use SOMENTE a publishable key (anon). A secret key (service_role)
+   nunca pode aparecer aqui: ela fica apenas nos GitHub Secrets.
+   ═══════════════════════════════════════════════════════════════ */
+const SUPABASE_URL      = "https://XXXXXXXXXXXX.supabase.co";
+const SUPABASE_ANON_KEY = "SUA_PUBLISHABLE_KEY_AQUI";
+
+const LIMITE = 500;
+
+const HEADERS = {
+  apikey: SUPABASE_ANON_KEY,
+  Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+};
+
+/* Escapa qualquer valor externo antes de inserir no HTML. */
+function escapeHtml(valor) {
+  if (valor === null || valor === undefined) return "";
+  return String(valor)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+async function sbFetch(caminho) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${caminho}`, { headers: HEADERS });
+  if (!r.ok) throw new Error(`Supabase HTTP ${r.status}: ${await r.text()}`);
+  return r.json();
+}
+
+/* ── Formatação numérica (pt-BR) ───────────────────────────── */
+const nf = (v, casas = 0) =>
+  v === null || v === undefined || Number.isNaN(Number(v))
+    ? "—"
+    : Number(v).toLocaleString("pt-BR", {
+        minimumFractionDigits: casas, maximumFractionDigits: casas });
+
+function formatarData(iso) {
+  if (!iso) return "—";
+  const [a, m, d] = String(iso).slice(0, 10).split("-");
+  return d && m && a ? `${d}/${m}/${a}` : escapeHtml(iso);
+}
+
+function formatarDataHora(iso) {
+  if (!iso) return "—";
+  const dt = new Date(iso);
+  if (Number.isNaN(dt.getTime())) return "—";
+  return dt.toLocaleString("pt-BR", {
+    day: "2-digit", month: "2-digit", year: "numeric",
+    hour: "2-digit", minute: "2-digit",
+  });
+}
+
+/* ── Última execução do pipeline ───────────────────────────── */
+async function carregarUltimaColeta() {
+  const alvo = document.getElementById("ultima-coleta");
+  const info = document.getElementById("status-coleta");
+  try {
+    const linhas = await sbFetch(
+      "execucoes?select=concluido_em,status,registros_processados" +
+      "&order=concluido_em.desc&limit=1"
+    );
+    if (!linhas.length) {
+      alvo.textContent = "nenhuma execução registrada";
+      return;
+    }
+    const e = linhas[0];
+    alvo.textContent = formatarDataHora(e.concluido_em);
+    info.textContent =
+      `${escapeHtml(e.status)} · ${nf(e.registros_processados)} registros`;
+  } catch (err) {
+    alvo.textContent = "indisponível";
+    info.textContent = escapeHtml(err.message);
+  }
+}
+
+/* ── Régua de proximidade ──────────────────────────────────── */
+function desenharEscala(dados) {
+  const svg = document.getElementById("grafico");
+  const W = 900, H = 190, ML = 56, MR = 30, BASE = 132;
+  const pontos = dados
+    .filter(d => Number(d.distancia_lunar) > 0)
+    .sort((a, b) => a.distancia_lunar - b.distancia_lunar);
+
+  if (!pontos.length) {
+    svg.innerHTML =
+      `<text x="${W/2}" y="${BASE}" text-anchor="middle"
+             fill="#5a6880" font-family="IBM Plex Sans" font-size="14">
+         Sem aproximações no recorte selecionado
+       </text>`;
+    return;
+  }
+
+  // Escala logarítmica: as distâncias variam de frações de LD a centenas.
+  const maxLD = Math.max(...pontos.map(p => p.distancia_lunar), 1.4);
+  const minLD = Math.min(...pontos.map(p => p.distancia_lunar), 0.5);
+  const lo = Math.log10(Math.max(minLD * 0.7, 0.02));
+  const hi = Math.log10(maxLD * 1.15);
+  const x = ld => ML + ((Math.log10(ld) - lo) / (hi - lo)) * (W - ML - MR);
+
+  let svgTxt = "";
+
+  // Eixo
+  svgTxt += `<line x1="${ML}" y1="${BASE}" x2="${W-MR}" y2="${BASE}"
+                   stroke="#16233d" stroke-width="1.5"/>`;
+
+  // Terra na origem
+  svgTxt += `<circle cx="${ML-14}" cy="${BASE}" r="7" fill="#16233d"/>`;
+  svgTxt += `<text x="${ML-14}" y="${BASE+26}" text-anchor="middle"
+                   fill="#16233d" font-family="IBM Plex Sans"
+                   font-size="11" font-weight="600">Terra</text>`;
+
+  // Marcas de referência
+  [0.1, 0.5, 1, 5, 10, 25, 50, 100].forEach(ld => {
+    if (ld < Math.pow(10, lo) || ld > Math.pow(10, hi)) return;
+    const px = x(ld);
+    const ehLua = ld === 1;
+    svgTxt += `<line x1="${px}" y1="${BASE-(ehLua?34:7)}" x2="${px}" y2="${BASE+7}"
+                     stroke="${ehLua ? "#7d6ea3" : "#c6d0dd"}"
+                     stroke-width="${ehLua ? 2 : 1}"
+                     ${ehLua ? "" : 'stroke-dasharray="2 3"'}/>`;
+    svgTxt += `<text x="${px}" y="${BASE+26}" text-anchor="middle"
+                     fill="${ehLua ? "#7d6ea3" : "#8a94a6"}"
+                     font-family="IBM Plex Mono" font-size="10.5"
+                     font-weight="${ehLua ? 600 : 400}">${ld} LD</text>`;
+    if (ehLua) {
+      svgTxt += `<text x="${px}" y="${BASE-40}" text-anchor="middle"
+                       fill="#7d6ea3" font-family="IBM Plex Sans"
+                       font-size="11" font-weight="600">órbita da Lua</text>`;
+    }
+  });
+
+  // Marcadores: triângulo = perigoso, círculo = sem risco.
+  // A forma diferencia além da cor, para não depender só dela.
+  pontos.forEach((p, i) => {
+    const px = x(p.distancia_lunar);
+    const py = BASE - 16 - (i % 5) * 17;   // escalona para reduzir sobreposição
+    const nome = escapeHtml(p.nome);
+    const rotulo = `${nome} — ${nf(p.distancia_lunar, 2)} LD em ${formatarData(p.data_aproximacao)}`;
+    svgTxt += `<line x1="${px}" y1="${py}" x2="${px}" y2="${BASE}"
+                     stroke="#c6d0dd" stroke-width="1"/>`;
+    if (p.potencialmente_perigoso) {
+      svgTxt += `<path d="M ${px} ${py-6} L ${px+5.5} ${py+4} L ${px-5.5} ${py+4} Z"
+                       fill="#a8272e"><title>${rotulo}</title></path>`;
+    } else {
+      svgTxt += `<circle cx="${px}" cy="${py}" r="4" fill="#2c6e64"
+                         fill-opacity="0.85"><title>${rotulo}</title></circle>`;
+    }
+  });
+
+  svg.innerHTML = svgTxt;
+}
+
+/* ── Números do recorte ────────────────────────────────────── */
+function atualizarNumeros(dados) {
+  const set = (id, txt) => { document.getElementById(id).innerHTML = txt; };
+
+  if (!dados.length) {
+    ["n-total","n-perigosos","n-proximo","n-veloz","n-diametro"]
+      .forEach(id => set(id, "—"));
+    return;
+  }
+
+  const perigosos = dados.filter(d => d.potencialmente_perigoso).length;
+  const comDist   = dados.filter(d => Number(d.distancia_lunar) > 0);
+  const proximo   = comDist.length
+    ? comDist.reduce((a, b) => (a.distancia_lunar < b.distancia_lunar ? a : b)) : null;
+  const veloz     = dados.reduce((a, b) =>
+    ((a.velocidade_kms || 0) > (b.velocidade_kms || 0) ? a : b));
+  const maior     = dados.reduce((a, b) =>
+    ((a.diametro_medio_m || 0) > (b.diametro_medio_m || 0) ? a : b));
+
+  set("n-total", nf(dados.length));
+  set("n-perigosos", nf(perigosos));
+  set("n-proximo", proximo
+    ? `${nf(proximo.distancia_lunar, 2)} <small>LD</small>` : "—");
+  set("n-veloz", `${nf(veloz.velocidade_kms, 1)} <small>km/s</small>`);
+  set("n-diametro", `${nf(maior.diametro_medio_m, 0)} <small>m</small>`);
+}
+
+/* ── Tabela ────────────────────────────────────────────────── */
+function montarTabela(dados) {
+  const corpo = document.getElementById("corpo");
+
+  if (!dados.length) {
+    corpo.innerHTML =
+      `<tr><td colspan="7" class="vazio">
+         Nenhuma aproximação encontrada. Amplie o período ou limpe os filtros.
+       </td></tr>`;
+    return;
+  }
+
+  corpo.innerHTML = dados.map(d => {
+    const nome = escapeHtml(d.nome);
+    const link = d.nasa_jpl_url
+      ? `<a href="${escapeHtml(d.nasa_jpl_url)}" target="_blank" rel="noopener">${nome}</a>`
+      : nome;
+    const classe = d.potencialmente_perigoso ? ' class="perigoso"' : "";
+    const tag = d.potencialmente_perigoso
+      ? '<span class="tag haz">Potencialmente perigoso</span>'
+      : '<span class="tag ok">Sem risco</span>';
+
+    return `<tr${classe}>
+      <td class="nome">${link}</td>
+      <td>${formatarData(d.data_aproximacao)}</td>
+      <td class="num">${nf(d.diametro_min_m, 0)}–${nf(d.diametro_max_m, 0)} m</td>
+      <td class="num">${nf(d.velocidade_kms, 1)} km/s</td>
+      <td class="num">${nf(d.distancia_km, 0)} km</td>
+      <td class="num">${nf(d.distancia_lunar, 2)}</td>
+      <td>${tag}</td>
+    </tr>`;
+  }).join("");
+}
+
+/* ── Consulta com filtros ──────────────────────────────────── */
+async function carregar() {
+  const corpo = document.getElementById("corpo");
+  corpo.innerHTML = `<tr><td colspan="7" class="vazio">Carregando…</td></tr>`;
+
+  const de      = document.getElementById("f-de").value;
+  const ate     = document.getElementById("f-ate").value;
+  const nome    = document.getElementById("f-nome").value.trim();
+  const perigo  = document.getElementById("f-perigo").checked;
+  const ordem   = document.getElementById("f-ordem").value;
+
+  const partes = [
+    "select=neo_reference_id,nome,nasa_jpl_url,diametro_min_m,diametro_max_m," +
+    "diametro_medio_m,potencialmente_perigoso,data_aproximacao," +
+    "velocidade_kms,distancia_km,distancia_lunar",
+    `order=${ordem}`,
+    `limit=${LIMITE}`,
+  ];
+  if (de)     partes.push(`data_aproximacao=gte.${de}`);
+  if (ate)    partes.push(`data_aproximacao=lte.${ate}`);
+  if (perigo) partes.push("potencialmente_perigoso=is.true");
+  if (nome)   partes.push(`nome=ilike.*${encodeURIComponent(nome)}*`);
+
+  try {
+    const dados = await sbFetch("asteroides?" + partes.join("&"));
+    atualizarNumeros(dados);
+    desenharEscala(dados);
+    montarTabela(dados);
+  } catch (err) {
+    corpo.innerHTML =
+      `<tr><td colspan="7" class="vazio">
+         Não foi possível carregar os dados. ${escapeHtml(err.message)}
+       </td></tr>`;
+    atualizarNumeros([]);
+    desenharEscala([]);
+  }
+}
+
+/* ── Inicialização ─────────────────────────────────────────── */
+document.getElementById("btn-aplicar").addEventListener("click", carregar);
+document.getElementById("f-nome").addEventListener("keydown", e => {
+  if (e.key === "Enter") carregar();
+});
+document.getElementById("f-ordem").addEventListener("change", carregar);
+document.getElementById("f-perigo").addEventListener("change", carregar);
+document.getElementById("btn-limpar").addEventListener("click", () => {
+  document.getElementById("f-de").value = "";
+  document.getElementById("f-ate").value = "";
+  document.getElementById("f-nome").value = "";
+  document.getElementById("f-perigo").checked = false;
+  document.getElementById("f-ordem").value = "distancia_lunar.asc";
+  carregar();
+});
+
+carregarUltimaColeta();
+carregar();
+</script>
+</body>
+</html>
