@@ -1,0 +1,60 @@
+name: Pipeline NeoWs → Supabase
+
+on:
+  schedule:
+    # Todo dia às 09h UTC (06h de Brasília).
+    # A NeoWs publica as aproximações do dia, então uma coleta diária basta.
+    - cron: '0 9 * * *'
+  workflow_dispatch:
+    inputs:
+      data_inicio:
+        description: 'Data inicial da janela (YYYY-MM-DD). Vazio = hoje.'
+        required: false
+        default: ''
+      dias_janela:
+        description: 'Tamanho da janela em dias (1 a 7). Padrão 7.'
+        required: false
+        default: '7'
+
+# Permissão mínima necessária: apenas leitura do repositório para o checkout.
+# Os dados vão direto ao Supabase — o workflow não escreve no repo.
+permissions:
+  contents: read
+
+# Evita execuções simultâneas do mesmo workflow no mesmo branch.
+# cancel-in-progress: false garante que um run em andamento não seja
+# cancelado se o cron disparar durante uma execução manual.
+concurrency:
+  group: neows-supabase-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  coletar-e-inserir:
+    runs-on: ubuntu-latest
+    # Encerra o job após 10 minutos — evita jobs presos consumindo
+    # minutos do plano gratuito.
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout do repositório
+        uses: actions/checkout@v5
+
+      - name: Configurar Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Instalar dependências
+        run: pip install requests supabase
+
+      - name: Coletar NeoWs e inserir no Supabase
+        run: python scripts/fetch_nasa.py
+        env:
+          SUPABASE_URL:         ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          NASA_API_KEY:         ${{ secrets.NASA_API_KEY }}
+          DATA_INICIO:          ${{ github.event.inputs.data_inicio }}
+          DIAS_JANELA:          ${{ github.event.inputs.dias_janela || '7' }}
+
+      # Sem etapa de commit — os dados vão direto ao Supabase.
+      # O repositório guarda apenas o código.
